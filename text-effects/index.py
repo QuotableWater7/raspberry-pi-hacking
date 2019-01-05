@@ -1,16 +1,24 @@
+#!/usr/bin/env python3
+
 import os
 import time
+
+import sys
+from neopixel import *
+
+LED_COUNT      = 256      # Number of LED pixels.
+LED_PIN        = 18      # GPIO pin connected to the pixels (18 uses PWM!).
+LED_FREQ_HZ    = 800000  # LED signal frequency in hertz (usually 800khz)
+LED_DMA        = 10      # DMA channel to use for generating signal (try 10)
+LED_BRIGHTNESS = 10     # Set to 0 for darkest and 255 for brightest
+LED_INVERT     = False   # True to invert the signal (when using NPN transistor level shift)
+LED_CHANNEL    = 0       # set to '1' for GPIOs 13, 19, 41, 45 or 53
 
 def clearTerminalWindow():
 	os.system('cls' if os.name == 'nt' else 'clear')
 
-gridX = 100
+gridX = 32
 gridY = 8
-
-words = [
-	"Hello there",
-	"this is jt"
-]
 
 letterMap = {
 	"a": [[0, 6], [0, 5], [0, 4], [1, 3], [2, 2], [3, 3], [4, 4], [2, 4], [4, 5], [4, 6]],
@@ -63,11 +71,24 @@ def drawLetter(matrix, letter, xPos):
 def createEmptyMatrix():
 	return [[0 for i in range(gridY)] for j in range(gridX)]
 
-def printMatrix(matrix):
+def printMatrixConsole(matrix):
 	for i in range(gridY):
 		for j in range(gridX):
 			print('@' if matrix[j][i] == 1 else ' ', end='', flush=True)
 		print(flush=True)
+
+def printMatrix(matrix, strip):
+	for i in range(gridY):
+		for j in range(gridX):
+					if matrix[j][i] == 1:
+						drawPixel(strip, j, i, Color(0, (255 / gridX) * j, 255 - (255 / gridX) * j))
+		strip.show()
+
+		for i in range(gridY):
+			for j in range(gridX):
+				if matrix[j][i] == 1:
+					drawPixel(strip, j, i, Color(0, 0, 0))
+					matrix[j][i] = 0
 
 def resetMatrix(matrix):
 	for i in range(len(matrix)):
@@ -76,26 +97,52 @@ def resetMatrix(matrix):
 		for j in range(len(row)):
 			row[j] = 0
 
-def main():
+def drawPixel(strip, x, y, color):
+	modifiedY = 7 - y if x % 2 == 1 else y
+	strip.setPixelColor(x * 8 + modifiedY, color)
+
+def colorScreen(strip, color):
+	for i in range(0, 8):
+		for j in range(0, 32):
+			drawPixel(strip, j, i, color)
+
+def colorWipe(strip):
+	colorScreen(strip, Color(0, 0, 0))
+	strip.show()
+
+def rgb(r, g, b):
+	return Color(g, r, b)
+
+def animateText(strip, word):
 	matrix = createEmptyMatrix()
+	offset = 0
 
-	for word in words:
-		offset = 0
-		# for offset in reversed(range(0, gridX, 2)):
-		while True:
-			x = gridX - offset
+	# for offset in reversed(range(0, gridX, 2)):
+	while True:
+		x = gridX - offset
 
-			for letter in word.lower():
-				x = drawLetter(matrix, letter, x)
+		for letter in word.lower():
+			x = drawLetter(matrix, letter, x)
 
-			clearTerminalWindow()
-			printMatrix(matrix)
-			resetMatrix(matrix)
-			time.sleep(.15)
+		clearTerminalWindow()
+		printMatrix(matrix, strip)
+		resetMatrix(matrix)
+		time.sleep(.2)
 
-			if x < 0:
-				break
+		if x < 0:
+			break
 
-			offset += 3
+		offset += 1
 
-main()
+
+if __name__ == '__main__':
+	strip = Adafruit_NeoPixel(LED_COUNT, LED_PIN, LED_FREQ_HZ, LED_DMA, LED_INVERT, LED_BRIGHTNESS, LED_CHANNEL)
+	strip.begin()
+
+	try:
+		animateText(strip, "hello, world!")
+		animateText(strip, "woohoo!!")
+		colorWipe(strip)
+
+	except KeyboardInterrupt:
+		colorWipe(strip)
